@@ -1,8 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Calendar, MapPin, Clock, ArrowDown } from 'lucide-react';
+import Image from './assets/img/couple.jpg';
 
 export default function App() {
-  // Countdown Timer Logic
+  // --- Cookie Helper Functions ---
+  const setCookie = (name, value, days) => {
+    let expires = "";
+    if (days) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+  };
+
+  const getCookie = (name) => {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i=0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  };
+
+  // --- Name Entry & Caching Logic ---
+  const [guestName, setGuestName] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+
+  // Check cache on initial load
+  useEffect(() => {
+    const cachedName = getCookie('weddingGuestName');
+    if (cachedName) {
+      setGuestName(cachedName);
+      setIsInviteOpen(true);
+    }
+  }, []);
+
+  const handleOpenInvite = (e) => {
+    e.preventDefault();
+    if (nameInput.trim()) {
+      const finalName = nameInput.trim();
+      setGuestName(finalName);
+      // Cache the name as a cookie for 30 days so it persists across sessions
+      setCookie('weddingGuestName', finalName, 30);
+      setIsInviteOpen(true);
+    }
+  };
+
+  // --- Countdown Timer Logic ---
   const calculateTimeLeft = () => {
     const difference = +new Date("2026-07-16T08:30:00") - +new Date();
     let timeLeft = {};
@@ -20,18 +68,20 @@ export default function App() {
 
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
 
-  // Timer Effect
   useEffect(() => {
+    if (!isInviteOpen) return; // Don't run timer if invite isn't open
     const timer = setTimeout(() => {
       setTimeLeft(calculateTimeLeft());
     }, 1000);
     return () => clearTimeout(timer);
   });
 
-  // Scroll & Parallax Effects
+  // --- Scroll & Parallax Effects ---
   const [offsetY, setOffsetY] = useState(0);
   
   useEffect(() => {
+    if (!isInviteOpen) return;
+
     // Parallax scroll listener
     const handleScroll = () => setOffsetY(window.scrollY);
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -58,12 +108,58 @@ export default function App() {
       window.removeEventListener('scroll', handleScroll);
       observer.disconnect();
     };
-  }, []);
+  }, [isInviteOpen]);
 
+  // --- UI: Welcome Screen ---
+  if (!isInviteOpen) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] text-stone-800 font-sans selection:bg-[#cba258] selection:text-white flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Cinematic Noise Overlay */}
+        <div className="fixed inset-0 z-50 pointer-events-none opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
+
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+          .font-script { font-family: 'Great Vibes', cursive; }
+          .font-serif { font-family: 'Playfair Display', serif; }
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-fade-in { animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        `}</style>
+
+        <div className="z-10 flex flex-col items-center w-full max-w-md px-6 text-center animate-fade-in">
+          <Heart className="w-8 h-8 text-[#cba258] mb-8 opacity-80" strokeWidth={1} />
+          <h1 className="font-serif text-3xl md:text-4xl text-white/90 mb-4 font-light tracking-wide">Welcome to Our Wedding</h1>
+          <p className="font-serif text-[10px] md:text-xs tracking-[0.4em] text-[#cba258] mb-12 uppercase">Please enter your name</p>
+          
+          <form onSubmit={handleOpenInvite} className="w-full flex flex-col items-center">
+            <input 
+              type="text" 
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Your Name"
+              className="w-full bg-transparent border-b border-white/20 text-white font-serif text-xl md:text-2xl text-center px-4 py-3 focus:outline-none focus:border-[#cba258] transition-colors mb-10 placeholder:text-white/20 placeholder:font-light"
+              autoFocus
+            />
+            <button 
+              type="submit" 
+              disabled={!nameInput.trim()}
+              className="border border-[#cba258]/50 text-[#cba258] px-10 py-3 rounded-full font-serif uppercase tracking-[0.2em] text-[10px] hover:bg-[#cba258] hover:text-black transition-all duration-500 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#cba258]"
+            >
+              Open Invitation
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // --- UI: Main Invitation ---
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-stone-800 font-sans selection:bg-[#cba258] selection:text-white overflow-x-hidden relative scroll-smooth">
       
-      {/* Cinematic Noise Overlay for a premium textured print look */}
+      {/* Cinematic Noise Overlay */}
       <div className="fixed inset-0 z-50 pointer-events-none opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
 
       {/* Custom Animations & Fonts */}
@@ -133,7 +229,7 @@ export default function App() {
         {/* Parallax Background Image with Ken Burns Zoom */}
         <div className="absolute inset-0 z-0 overflow-hidden" style={{ transform: `translateY(${offsetY * 0.4}px)` }}>
           <img 
-            src="https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=2000&auto=format&fit=crop" 
+            src= {Image}
             alt="Couple background" 
             className="w-full h-full object-cover opacity-70 animate-ken-burns origin-center"
           />
@@ -144,20 +240,26 @@ export default function App() {
         
         <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mx-auto mt-10">
           
+          {/* Personalized Greeting */}
+          <div className="reveal active flex flex-col items-center mb-8">
+             <p className="font-script text-3xl md:text-4xl text-[#cba258] drop-shadow-md">Warmly Inviting,</p>
+             <p className="font-serif text-lg md:text-xl text-white/90 mt-2 tracking-[0.3em] uppercase font-light">{guestName}</p>
+          </div>
+
           {/* Monogram Initials */}
-          <div className="reveal active flex items-center justify-center gap-6 md:gap-10 mb-2">
+          <div className="reveal active reveal-delay-1 flex items-center justify-center gap-6 md:gap-10 mb-2">
             <h1 className="font-serif text-7xl md:text-8xl lg:text-9xl text-white/95 tracking-widest drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] font-light">D</h1>
             <span className="font-serif text-5xl md:text-6xl lg:text-7xl gold-gradient italic font-light">&</span>
             <h1 className="font-serif text-7xl md:text-8xl lg:text-9xl text-white/95 tracking-widest drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] font-light">S</h1>
           </div>
 
           {/* Date */}
-          <p className="reveal active reveal-delay-1 font-serif text-[11px] md:text-[13px] tracking-[0.6em] text-white/70 mb-16 md:mb-20 uppercase">
+          <p className="reveal active reveal-delay-2 font-serif text-[11px] md:text-[13px] tracking-[0.6em] text-white/70 mb-16 md:mb-20 uppercase">
             16 . 07 . 2026
           </p>
 
-          {/* Boxed Countdown Timer (Ultra Glassmorphism) */}
-          <div className="reveal active reveal-delay-2 flex justify-center gap-3 md:gap-6 text-center">
+          {/* Boxed Countdown Timer */}
+          <div className="reveal active reveal-delay-3 flex justify-center gap-3 md:gap-6 text-center">
             {Object.keys(timeLeft).length ? (
               <>
                 <div className="flex flex-col items-center justify-center border border-white/10 bg-white/[0.02] backdrop-blur-xl w-[80px] h-[96px] md:w-[110px] md:h-[130px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_32px_rgba(0,0,0,0.5)] rounded-lg group hover:bg-white/[0.05] hover:border-[#cba258]/40 transition-all duration-700">
@@ -192,7 +294,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Parents Section (Light Theme - Pearl Paper aesthetic) */}
+      {/* Parents Section (Light Theme) */}
       <section className="py-32 px-4 bg-[#fdfbf7] relative z-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
         <div className="max-w-4xl mx-auto flex flex-col items-center reveal">
           
@@ -223,14 +325,15 @@ export default function App() {
 
           <div className="mt-28 text-center reveal">
             <p className="text-[10px] uppercase tracking-[0.4em] text-stone-400 mb-6 font-medium">Together with their parents</p>
-            <p className="text-3xl md:text-5xl text-[#1a1a1a] font-serif font-light tracking-wide">
-              Request the pleasure of your company
+            <p className="font-script text-4xl md:text-5xl text-[#cba258] mb-4">Warmly inviting {guestName}</p>
+            <p className="text-3xl md:text-5xl text-[#1a1a1a] font-serif font-light tracking-wide mt-6">
+              To request the pleasure of your company
             </p>
           </div>
         </div>
       </section>
 
-      {/* Event Details Section (Dark Theme with Ambient Lighting) */}
+      {/* Event Details Section */}
       <section className="py-32 px-4 bg-[#050505] relative overflow-hidden">
         
         {/* Ambient Glows */}
